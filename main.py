@@ -16,12 +16,12 @@ from game_logic import GameLogic
 from agent import DQNAgent, get_game_state_for_q_table # Changed QLearningTableAgent to DQNAgent
 
 # --- RL Agent Configuration ---
-TRAIN_MODE = True # Set to True to enable training
+TRAIN_MODE = False # Set to True to enable training
 NUM_EPISODES_TO_TRAIN = 200000
 SAVE_AGENT_EVERY_N_EPISODES = 5000
-AGENT_MODEL_FILE = "dqn_boss_agent.pth" # Changed filename for DQN model
+AGENT_MODEL_FILE = "Model/dqn_boss_agent.pth" # Changed filename for DQN model
 LOG_STATS_EVERY_N_EPISODES = 500
-TRAINING_STATS_FILE = "training_stats.csv" # CSV file to save training statistics
+TRAINING_STATS_FILE = "Model/training_stats.csv" # CSV file to save training statistics
 
 class TacticsGridWindow(QMainWindow):
     def __init__(self, agent_to_use=None):
@@ -29,7 +29,7 @@ class TacticsGridWindow(QMainWindow):
         self.setWindowTitle("Tactics Grid – Boss Assault (DQN RL)") # Updated window title
         self.setGeometry(100, 100, 900, 850)
         base_path = os.path.dirname(os.path.abspath(__file__))
-        self.forest_bg_path = os.path.join(base_path, "assets", "forest_bg.jpg").replace("\\", "/")
+        self.forest_bg_path = os.path.join(base_path, "assets", "forest_bg.png").replace("\\", "/")
         self.boss_gif_path = os.path.join(base_path, "assets", "boss_idle.gif").replace("\\", "/")
         
         # Pass the agent instance to GameLogic

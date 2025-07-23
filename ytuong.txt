@@ -1,0 +1,310 @@
+Đây là một ý tưởng rất hay và là một bước tiến gần hơn tới các kỹ thuật Reinforcement Learning nâng cao, cụ thể là các phương pháp dựa trên bộ nhớ (memory-based) hoặc học từ kinh nghiệm tương tự (learning from similar experiences). Thay vì chỉ học từ bước đi gần nhất, agent sẽ tìm trong "ký ức" của nó những tình huống tương tự trong quá khứ và học hỏi từ chúng.
+
+Với Q-Table, chúng ta không thể trực tiếp áp dụng các kỹ thuật phức tạp như Prioritized Experience Replay (thường dùng trong DQN), nhưng chúng ta có thể mô phỏng ý tưởng này bằng cách thay đổi cách Q-Table được cập nhật.
+
+Ý Tưởng Cốt Lõi: Cập Nhật Trạng Thái Lân Cận (Updating Neighboring States)
+
+Khi bạn chơi một ván và agent học được điều gì đó ở trạng thái S (ví dụ: hành động A ở trạng thái S dẫn đến kết quả tốt), chúng ta không chỉ cập nhật Q(S, A) mà còn "lan truyền" một phần nhỏ của thông tin học được đó cho các trạng thái S' gần giống với S.
+
+"Gần giống" (tương tự) có nghĩa là gì?
+
+Hai trạng thái được coi là gần giống nếu chúng chỉ khác nhau một vài chi tiết nhỏ trong biểu diễn rời rạc.
+Ví dụ, trạng thái S1 = (HP: Thấp, Rage: Vừa, Lính: 3, Vùng đặt quân: Góc trái)
+sẽ gần giống với S2 = (HP: Thấp, Rage: Vừa, Lính: 4, Vùng đặt quân: Góc trái).
+Chúng chỉ khác nhau ở số lượng lính.
+
+Thách thức:
+
+Định nghĩa độ tương tự (Similarity Metric): Làm thế nào để đo lường khoảng cách giữa hai trạng thái rời rạc? Một cách đơn giản là dùng khoảng cách Manhattan (tổng trị tuyệt đối của sự khác biệt giữa các chỉ số của tuple trạng thái).
+
+Xác định các "lân cận" (Neighbors): Làm thế nào để tìm tất cả các trạng thái S' gần với S trong một Q-Table khổng lồ một cách hiệu quả? Việc này rất tốn kém về mặt tính toán.
+
+Cập nhật lan truyền (Spreading Updates): Cập nhật Q(S', A) của các trạng thái lân cận như thế nào? Thường thì mức độ cập nhật sẽ giảm đi khi trạng thái lân cận càng "xa" trạng thái gốc.
+
+Do sự phức tạp về tính toán của việc tìm kiếm lân cận trong Q-Table lớn, một cách tiếp cận thực tế hơn là học từ các episodes (ván đấu) tương tự trong quá khứ.
+
+Cách Tiếp Cận: Học Offline từ Kho Lưu Trữ Các Ván Đấu Tương Tự
+
+Đây là một dạng "batch learning". Thay vì học ngay lập tức sau mỗi hành động, chúng ta sẽ:
+
+Lưu trữ toàn bộ các ván đấu: Mỗi khi bạn chơi một ván, toàn bộ chuỗi (state, action, reward, next_state) của ván đó sẽ được lưu lại. Chúng ta gọi mỗi ván đấu là một "episode" hoặc "trajectory".
+
+Đặc trưng hóa (Featureize) mỗi ván đấu: Tạo ra một "vector phong cách" cho mỗi ván đấu đã chơi. Vector này tóm tắt lối chơi của bạn trong ván đó (ví dụ: % quân Tank đã đặt, mật độ đặt quân ở góc trái, mức độ hung hãn - đo bằng sát thương gây ra mỗi round).
+
+Học lại (Re-training):
+
+Sau một số lượng ván đấu nhất định (ví dụ, sau mỗi 5 ván), hoặc khi bạn bấm một nút "Huấn luyện lại", agent sẽ thực hiện quá trình học offline.
+
+Nó sẽ xem xét ván đấu gần nhất bạn vừa chơi và vector phong cách của ván đó.
+
+Sau đó, nó tìm trong kho lưu trữ tất cả các ván đấu có "vector phong cách" tương tự.
+
+Cuối cùng, nó sẽ thực hiện nhiều lượt cập nhật Q-Table bằng cách sử dụng dữ liệu từ tất cả các ván đấu tương tự này.
+
+Sơ đồ luồng hoạt động:
+
+Người chơi chơi game (Game 1, 2, 3, ... N).
+
+Agent vẫn có thể học online (cập nhật Q-Table sau mỗi bước) như hiện tại.
+
+Toàn bộ dữ liệu của mỗi ván (các bước đi (s, a, r, s')) được lưu vào một file/cơ sở dữ liệu lớn.
+
+Sau N ván đấu.
+
+Hệ thống tính toán "vector phong cách" cho ván đấu thứ N.
+
+Hệ thống tìm kiếm trong kho lưu trữ các ván đấu 1, 2, ..., N-1 và chọn ra K ván có vector phong cách gần nhất với ván N.
+
+Hệ thống "chạy lại" (replay) tất cả các bước đi từ K ván đấu tương tự này và ván N, thực hiện cập nhật agent.learn() cho mỗi bước đi. Điều này giúp củng cố kiến thức về cách đối phó với phong cách chơi cụ thể đó.
+
+Các bước sửa đổi Code:
+
+1. Sửa đổi main.py để lưu trữ và kích hoạt re-training
+Generated python
+# main.py
+# ... imports ...
+import pickle
+import numpy as np
+
+# ... (các hằng số khác) ...
+EPISODE_HISTORY_FILE = "episode_history.pkl"
+REPLAY_BUFFER_MAX_SIZE = 100 # Lưu trữ tối đa 100 ván đấu gần nhất
+
+class TacticsGridWindow(QMainWindow):
+    def __init__(self, agent_to_use=None):
+        # ...
+        self.episode_history = self.load_episode_history()
+        self.current_episode_data = [] # Lưu (s, a, r, s', done) cho ván hiện tại
+
+    def init_ui(self):
+        # ...
+        # Thêm một nút "Retrain" vào UI
+        self.retrain_button = QPushButton("Retrain from Similar Games")
+        self.retrain_button.setStyleSheet("QPushButton { background-color: #ffc107; color: black; padding: 5px; border-radius: 3px; }")
+        self.retrain_button.clicked.connect(self.on_retrain_clicked)
+        self.control_layout.addWidget(self.retrain_button)
+        # ...
+
+    def execute_boss_turn(self):
+        # ...
+        results = self.game.process_boss_attack()
+        status_code, message, animation_triggers, next_state_dict, reward, done, current_state_dict, action_idx = results
+
+        # Lưu bước đi này vào dữ liệu của ván hiện tại
+        if LEARN_FROM_HUMAN_MODE and action_idx is not None:
+            self.current_episode_data.append({
+                "state": current_state_dict,
+                "action": action_idx,
+                "reward": reward,
+                "next_state": next_state_dict,
+                "done": done
+            })
+        
+        # Agent vẫn có thể học online
+        if LEARN_FROM_HUMAN_MODE and self.agent is not None and action_idx is not None:
+            # ... (logic agent.learn() như cũ) ...
+
+    def handle_game_over(self, message):
+        # ...
+        if LEARN_FROM_HUMAN_MODE:
+            # Lưu ván đấu hiện tại vào lịch sử
+            if self.current_episode_data:
+                self.episode_history.append(self.current_episode_data)
+                if len(self.episode_history) > REPLAY_BUFFER_MAX_SIZE:
+                    self.episode_history.pop(0) # Xóa ván cũ nhất
+                self.save_episode_history()
+                self.log_message(f"Game session saved. History size: {len(self.episode_history)}")
+            
+            # Reset dữ liệu cho ván mới
+            self.current_episode_data = []
+
+            # Lưu Q-Table
+            self.agent.save(AGENT_MODEL_FILE)
+        # ... (phần còn lại của handle_game_over)
+
+    def on_retrain_clicked(self):
+        """Kích hoạt quá trình học lại từ các ván đấu tương tự."""
+        if not self.episode_history:
+            self.log_message("No game history to learn from.", is_error=True)
+            return
+
+        self.log_message("Starting retraining from similar games...")
+        QApplication.processEvents() # Cập nhật UI
+
+        # Lấy ván đấu cuối cùng làm tham chiếu
+        last_episode = self.episode_history[-1]
+        
+        # Tìm các ván đấu tương tự
+        similar_episodes = find_similar_episodes(last_episode, self.episode_history[:-1], k=5)
+        
+        if not similar_episodes:
+            self.log_message("No similar past games found. Retraining only on the last game.")
+            episodes_to_replay = [last_episode]
+        else:
+            self.log_message(f"Found {len(similar_episodes)} similar past games. Replaying...")
+            episodes_to_replay = similar_episodes + [last_episode]
+        
+        # Thực hiện học lại
+        replay_count = 0
+        epochs = 3 # Lặp lại việc học trên bộ dữ liệu này vài lần
+        for epoch in range(epochs):
+            for episode in episodes_to_replay:
+                for step_data in episode:
+                    state_dict = step_data["state"]
+                    action_idx = step_data["action"]
+                    reward = step_data["reward"]
+                    next_state_dict = step_data["next_state"]
+                    done = step_data["done"]
+
+                    current_discrete = self.agent._discretize_state(state_dict)
+                    next_discrete = self.agent._discretize_state(next_state_dict)
+                    self.agent.learn(current_discrete, action_idx, reward, next_discrete, done)
+                    replay_count += 1
+        
+        self.agent.save(AGENT_MODEL_FILE) # Lưu lại Q-Table đã được cải thiện
+        self.log_message(f"Retraining complete. Replayed {replay_count} steps. Agent saved.")
+        self.update_all_ui_displays() # Cập nhật epsilon label
+
+    def save_episode_history(self):
+        try:
+            with open(EPISODE_HISTORY_FILE, 'wb') as f:
+                pickle.dump(self.episode_history, f)
+        except Exception as e:
+            print(f"Error saving episode history: {e}")
+
+    def load_episode_history(self):
+        if os.path.exists(EPISODE_HISTORY_FILE):
+            try:
+                with open(EPISODE_HISTORY_FILE, 'rb') as f:
+                    return pickle.load(f)
+            except Exception as e:
+                print(f"Error loading episode history: {e}")
+        return []
+
+# --- Các hàm Helper bên ngoài Class ---
+
+def featurize_episode(episode_data):
+    """Tạo vector phong cách cho một ván đấu."""
+    if not episode_data:
+        return np.zeros(3) # Trả về vector 0 nếu không có dữ liệu
+
+    num_tanks_placed = 0
+    num_knights_placed = 0
+    num_ads_placed = 0
+    
+    # Cần một cách để lấy thông tin đặt quân của người chơi
+    # state_dict cần chứa thông tin này, hoặc chúng ta phải lưu nó riêng
+    # Giả sử chúng ta có thể suy ra từ state
+    for step in episode_data:
+        s_dict = step["state"]
+        unit_counts = s_dict["unit_counts"]
+        num_tanks_placed += unit_counts["Tank"] # Đây là cách ước lượng, không chính xác
+        num_knights_placed += unit_counts["Knight"]
+        num_ads_placed += unit_counts["AD"]
+    
+    total_units = num_tanks_placed + num_knights_placed + num_ads_placed
+    if total_units == 0:
+        return np.zeros(3)
+
+    # Vector phong cách: [tỷ lệ Tank, tỷ lệ Knight, tỷ lệ AD]
+    style_vector = np.array([
+        num_tanks_placed / total_units,
+        num_knights_placed / total_units,
+        num_ads_placed / total_units,
+    ])
+    return style_vector
+
+def find_similar_episodes(reference_episode, history, k=5):
+    """Tìm k ván đấu tương tự nhất trong lịch sử."""
+    if not reference_episode or not history:
+        return []
+
+    ref_vector = featurize_episode(reference_episode)
+    
+    distances = []
+    for i, episode in enumerate(history):
+        episode_vector = featurize_episode(episode)
+        # Khoảng cách Euclidean giữa hai vector phong cách
+        dist = np.linalg.norm(ref_vector - episode_vector)
+        distances.append((dist, i))
+    
+    # Sắp xếp theo khoảng cách và lấy k ván gần nhất
+    distances.sort(key=lambda x: x[0])
+    
+    similar_indices = [idx for dist, idx in distances[:k]]
+    return [history[i] for i in similar_indices]
+
+
+# Trong hàm main()
+def main():
+    app = QApplication(sys.argv)
+    
+    q_agent = QLearningTableAgent()
+    # ... (logic load agent như cũ)
+
+    window = TacticsGridWindow(agent_to_use=q_agent)
+    window.show()
+    
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
+
+
+Giải thích các thay đổi:
+
+Lưu trữ ván đấu (main.py):
+
+episode_history: Một danh sách chứa dữ liệu của các ván đấu đã chơi.
+
+current_episode_data: Một danh sách tạm thời để lưu các bước đi của ván hiện tại.
+
+execute_boss_turn: Mỗi bước đi của Boss (bao gồm state, action, reward,...) được thêm vào current_episode_data.
+
+handle_game_over: Khi ván đấu kết thúc, current_episode_data được thêm vào episode_history, và toàn bộ episode_history được lưu ra file.
+
+REPLAY_BUFFER_MAX_SIZE: Giới hạn số lượng ván đấu được lưu để tránh file quá lớn.
+
+Học lại (main.py):
+
+Nút "Retrain": Một nút mới được thêm vào UI để người chơi có thể kích hoạt quá trình học lại bất cứ lúc nào.
+
+on_retrain_clicked:
+
+Gọi find_similar_episodes để tìm các ván đấu tương tự trong lịch sử.
+
+Tạo một episodes_to_replay bao gồm ván cuối cùng và các ván tương tự.
+
+Lặp qua episodes_to_replay nhiều lần (epochs), gọi agent.learn() cho mỗi bước đi trong các ván đó. Điều này giúp củng cố mạnh mẽ kiến thức về phong cách chơi này.
+
+Lưu lại Q-Table đã được "tinh luyện".
+
+Phân tích phong cách chơi (Helper functions):
+
+featurize_episode: Hàm này tạo ra một "dấu vân tay" (vector đặc trưng) cho một ván đấu. Ví dụ hiện tại rất đơn giản, chỉ dựa trên tỷ lệ các loại quân. Bạn có thể làm cho nó phức tạp hơn nhiều bằng cách thêm các đặc trưng như:
+
+Độ hung hãn trung bình (sát thương/round).
+
+Tỷ lệ đặt quân ở các vùng khác nhau.
+
+Round trung bình mà ván đấu kết thúc.
+
+find_similar_episodes: Sử dụng khoảng cách Euclidean để so sánh các vector phong cách và tìm ra các ván đấu gần nhất.
+
+Ưu điểm của phương pháp này:
+
+Học sâu hơn: Agent không chỉ học từ một bước đi mà học lại từ toàn bộ các ván đấu có lối chơi giống nhau, giúp nó nhận ra các mẫu chiến thuật dài hạn.
+
+Không làm phình Q-Table: Không gian trạng thái của agent không thay đổi.
+
+Linh hoạt: Người chơi có thể quyết định khi nào muốn "dạy" lại cho agent.
+
+Nhược điểm:
+
+Phức tạp hơn: Cần quản lý việc lưu/tải lịch sử các ván đấu.
+
+featurize_episode là chìa khóa: Hiệu quả của phương pháp này phụ thuộc hoàn toàn vào việc bạn định nghĩa "phong cách chơi" (vector đặc trưng) tốt đến mức nào.
+
+Học Offline: Việc học diễn ra dồn dập khi bấm nút, có thể gây lag tạm thời.
+
+Đây là một cách tiếp cận mạnh mẽ để làm cho agent của bạn thực sự "học theo phong cách chơi" của đối thủ.
